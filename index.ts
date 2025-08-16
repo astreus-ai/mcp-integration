@@ -7,8 +7,7 @@ async function main() {
   const mainAgent = await Agent.create({
     name: 'FileAnalysisAgent',
     model: 'gpt-4o',
-    systemPrompt: 'You are a file analysis agent that processes files using graph-based workflows and MCP tools.',
-    useTools: true
+    systemPrompt: 'You are a file analysis agent that processes files using graph-based workflows and MCP tools.'
   });
 
   const mcpConfig = {
@@ -22,8 +21,7 @@ async function main() {
   
   const analysisGraph = new Graph({
     name: 'File Summary Workflow',
-    maxConcurrency: 1,
-    subAgentAware: false
+    maxConcurrency: 1
   }, mainAgent);
 
   const readTask = analysisGraph.addTaskNode({
@@ -42,7 +40,7 @@ async function main() {
   const result = await analysisGraph.run({ 
     stream: true,
     onChunk: (chunk) => {
-      process.stdout.write(chunk);
+      console.log(chunk);
     }
   });
 }
