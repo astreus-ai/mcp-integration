@@ -1,41 +1,50 @@
 import { config } from 'dotenv';
-import { Agent } from '@astreus-ai/astreus';
+import { Agent, Graph } from '@astreus-ai/astreus';
 
-// Load environment variables
 config();
 
 async function main() {
-  // Create agent
-  const agent = await Agent.create({
-    name: 'DevAgent',
+  const mainAgent = await Agent.create({
+    name: 'FileAnalysisAgent',
     model: 'gpt-4o',
-    systemPrompt: 'You are a development assistant with access to GitHub and filesystem.'
+    systemPrompt: 'You are a file analysis agent that processes files using graph-based workflows and MCP tools.',
+    useTools: true
   });
 
-  // Add MCP servers (environment variables loaded automatically)
-  await agent.addMCPServers([
-    {
-      name: 'github',
-      command: "npx",
-      args: ["-y", "@modelcontextprotocol/server-github"]
-      // GITHUB_PERSONAL_ACCESS_TOKEN loaded from .env
-    },
-    {
-      name: 'filesystem',
-      command: "npx", 
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "/Users/username/Documents"]
+  const mcpConfig = {
+    name: 'filesystem',
+    command: "npx", 
+    args: ["@modelcontextprotocol/server-filesystem", process.cwd()]
+  };
+
+  await mainAgent.addMCPServers([mcpConfig]);
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  const analysisGraph = new Graph({
+    name: 'File Summary Workflow',
+    maxConcurrency: 1,
+    subAgentAware: false
+  }, mainAgent);
+
+  const readTask = analysisGraph.addTaskNode({
+    name: 'File Reading',
+    prompt: 'Read the content of "./info.txt" file and analyze it.',
+    priority: 1
+  });
+
+  const summaryTask = analysisGraph.addTaskNode({
+    name: 'Summary Creation', 
+    prompt: 'Based on the analyzed file content from the previous task, create a concise summary and save it as "./summary.txt" file.',
+    dependencies: [readTask],
+    priority: 2
+  });
+
+  const result = await analysisGraph.run({ 
+    stream: true,
+    onChunk: (chunk) => {
+      process.stdout.write(chunk);
     }
-  ]);
-
-  // Use MCP tools automatically
-  const response = await agent.ask(`
-    List my GitHub repositories, 
-    find the most recent one,
-    and save a summary to a file called 'latest-repo.txt'
-  `);
-
-  console.log('MCP Integration Response:', response);
-  // Agent automatically uses GitHub API and filesystem tools
+  });
 }
 
 main().catch(console.error);
